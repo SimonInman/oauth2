@@ -145,6 +145,17 @@ func (c *Config) AuthCodeURL(state string, opts ...AuthCodeOption) string {
 	return buf.String()
 }
 
+// A PasswordCredentialOption is passed to Config.AuthCodeURL.
+type PasswordCredentialOption interface {
+	setValue(url.Values)
+}
+
+// SetPasswordCredentialParam builds a PasswordCredentialToken which passes
+// key/value parameters to a provider's authorization endpoint.
+func SetPasswordCredentialParam(key, value string) PasswordCredentialOption {
+	return setParam{key, value}
+}
+
 // PasswordCredentialsToken converts a resource owner username and password
 // pair into a token.
 //
@@ -156,13 +167,17 @@ func (c *Config) AuthCodeURL(state string, opts ...AuthCodeOption) string {
 //
 // The HTTP client to use is derived from the context.
 // If nil, http.DefaultClient is used.
-func (c *Config) PasswordCredentialsToken(ctx context.Context, username, password string) (*Token, error) {
-	return retrieveToken(ctx, c, url.Values{
+func (c *Config) PasswordCredentialsToken(ctx context.Context, username, password string, opts ...PasswordCredentialOption) (*Token, error) {
+	v := url.Values{
 		"grant_type": {"password"},
 		"username":   {username},
 		"password":   {password},
 		"scope":      internal.CondVal(strings.Join(c.Scopes, " ")),
-	})
+	}
+	for _, opt := range opts {
+		opt.setValue(v)
+	}
+	return retrieveToken(ctx, c, v)
 }
 
 // Exchange converts an authorization code into a token.
